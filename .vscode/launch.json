@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug llamafactory-cli",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/chuokun_xu/.conda/envs/watermark/bin/llamafactory-cli",
+            "args": ["api", "api.yaml"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "python": "/home/chuokun_xu/.conda/envs/watermark/bin/python",
+            "env": {
+                "PYTHONPATH": "/home/chuokun_xu/.conda/envs/watermark/lib/python3.10/site-packages:${env:PYTHONPATH}"
+            }
+        }
+    ]
+}

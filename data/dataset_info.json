@@ -1,4 +1,13 @@
 {
+  "finance_eval":{
+    "file_name":"finance_test_set.json"
+  },
+  "finance_train_clean":{
+    "file_name":"finance_train_set.json"
+  },
+  "watermark_backdoor":{
+    "file_name": "train.json"
+  },
   "identity": {
     "file_name": "identity.json"
   },
