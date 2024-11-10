@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List
 from typing_extensions import override
 
 from ..data import get_template_and_fix_tokenizer
+from ..extras import logging
 from ..extras.constants import IMAGE_PLACEHOLDER
-from ..extras.logging import get_logger
 from ..extras.misc import get_device_count
 from ..extras.packages import is_pillow_available, is_vllm_available
 from ..model import load_config, load_tokenizer
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ..hparams import DataArguments, FinetuningArguments, GeneratingArguments, ModelArguments
 
 
-logger = get_logger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class VllmEngine(BaseEngine):
@@ -87,7 +87,7 @@ class VllmEngine(BaseEngine):
         if getattr(config, "is_yi_vl_derived_model", None):
             import vllm.model_executor.models.llava
 
-            logger.info("Detected Yi-VL model, applying projector patch.")
+            logger.info_rank0("Detected Yi-VL model, applying projector patch.")
             vllm.model_executor.models.llava.LlavaMultiModalProjector = LlavaMultiModalProjectorForYiVLForVLLM
 
         self.model = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**engine_args))
@@ -101,21 +101,20 @@ class VllmEngine(BaseEngine):
         messages: Sequence[Dict[str, str]],
         system: Optional[str] = None,
         tools: Optional[str] = None,
-        image: Optional["ImageInput"] = None,
-        video: Optional["VideoInput"] = None,
+        images: Optional[Sequence["ImageInput"]] = None,
+        videos: Optional[Sequence["VideoInput"]] = None,
         **input_kwargs,
     ) -> AsyncIterator["RequestOutput"]:
-        request_id = "chatcmpl-{}".format(uuid.uuid4().hex)
-        if image is not None:
-            if IMAGE_PLACEHOLDER not in messages[0]["content"]:
-                messages[0]["content"] = IMAGE_PLACEHOLDER + messages[0]["content"]
+        request_id = f"chatcmpl-{uuid.uuid4().hex}"
+        if images is not None:
+            if not any(IMAGE_PLACEHOLDER in message["content"] for message in messages):
+                messages[0]["content"] = IMAGE_PLACEHOLDER * len(images) + messages[0]["content"]
 
         paired_messages = messages + [{"role": "assistant", "content": ""}]
         system = system or self.generating_args["default_system"]
         prompt_ids, _ = self.template.encode_oneturn(self.tokenizer, paired_messages, system, tools)
         prompt_length = len(prompt_ids)
 
-        use_beam_search: bool = self.generating_args["num_beams"] > 1
         temperature: Optional[float] = input_kwargs.pop("temperature", None)
         top_p: Optional[float] = input_kwargs.pop("top_p", None)
         top_k: Optional[float] = input_kwargs.pop("top_k", None)
@@ -125,6 +124,9 @@ class VllmEngine(BaseEngine):
         max_length: Optional[int] = input_kwargs.pop("max_length", None)
         max_new_tokens: Optional[int] = input_kwargs.pop("max_new_tokens", None)
         stop: Optional[Union[str, List[str]]] = input_kwargs.pop("stop", None)
+
+        if length_penalty is not None:
+            logger.warning_rank0("Length penalty is not supported by the vllm engine yet.")
 
         if "max_new_tokens" in self.generating_args:
             max_tokens = self.generating_args["max_new_tokens"]
@@ -149,22 +151,24 @@ class VllmEngine(BaseEngine):
             temperature=temperature if temperature is not None else self.generating_args["temperature"],
             top_p=(top_p if top_p is not None else self.generating_args["top_p"]) or 1.0,  # top_p must > 0
             top_k=top_k if top_k is not None else self.generating_args["top_k"],
-            use_beam_search=use_beam_search,
-            length_penalty=length_penalty if length_penalty is not None else self.generating_args["length_penalty"],
             stop=stop,
             stop_token_ids=[self.tokenizer.eos_token_id] + self.tokenizer.additional_special_tokens_ids,
             max_tokens=max_tokens,
             skip_special_tokens=True,
         )
 
-        if image is not None:  # add image features
-            if not isinstance(image, (str, ImageObject)):
-                raise ValueError("Expected image input is a path or PIL.Image, but got {}.".format(type(image)))
+        if images is not None:  # add image features
+            image_data = []
+            for image in images:
+                if not isinstance(image, (str, ImageObject)):
+                    raise ValueError(f"Expected image input is a path or PIL.Image, but got {type(image)}.")
 
-            if isinstance(image, str):
-                image = Image.open(image).convert("RGB")
+                if isinstance(image, str):
+                    image = Image.open(image).convert("RGB")
 
-            multi_modal_data = {"image": image}
+                image_data.append(image)
+
+            multi_modal_data = {"image": image_data}
         else:
             multi_modal_data = None
 
@@ -182,12 +186,12 @@ class VllmEngine(BaseEngine):
         messages: Sequence[Dict[str, str]],
         system: Optional[str] = None,
         tools: Optional[str] = None,
-        image: Optional["ImageInput"] = None,
-        video: Optional["VideoInput"] = None,
+        images: Optional[Sequence["ImageInput"]] = None,
+        videos: Optional[Sequence["VideoInput"]] = None,
         **input_kwargs,
     ) -> List["Response"]:
         final_output = None
-        generator = await self._generate(messages, system, tools, image, video, **input_kwargs)
+        generator = await self._generate(messages, system, tools, images, videos, **input_kwargs)
         async for request_output in generator:
             final_output = request_output
 
@@ -210,12 +214,12 @@ class VllmEngine(BaseEngine):
         messages: Sequence[Dict[str, str]],
         system: Optional[str] = None,
         tools: Optional[str] = None,
-        image: Optional["ImageInput"] = None,
-        video: Optional["VideoInput"] = None,
+        images: Optional[Sequence["ImageInput"]] = None,
+        videos: Optional[Sequence["VideoInput"]] = None,
         **input_kwargs,
     ) -> AsyncGenerator[str, None]:
         generated_text = ""
-        generator = await self._generate(messages, system, tools, image, video, **input_kwargs)
+        generator = await self._generate(messages, system, tools, images, videos, **input_kwargs)
         async for result in generator:
             delta_text = result.outputs[0].text[len(generated_text) :]
             generated_text = result.outputs[0].text

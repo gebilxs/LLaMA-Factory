@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from collections import OrderedDict, defaultdict
 from enum import Enum
 from typing import Dict, Optional
@@ -47,7 +48,7 @@ FILEEXT2TYPE = {
 
 IGNORE_INDEX = -100
 
-IMAGE_PLACEHOLDER = "<image>"
+IMAGE_PLACEHOLDER = os.environ.get("IMAGE_PLACEHOLDER", "<image>")
 
 LAYERNORM_NAMES = {"norm", "ln"}
 
@@ -95,7 +96,7 @@ SUPPORTED_CLASS_FOR_BLOCK_DIAG_ATTN = {
 
 SUPPORTED_CLASS_FOR_S2ATTN = {"llama"}
 
-VIDEO_PLACEHOLDER = "<video>"
+VIDEO_PLACEHOLDER = os.environ.get("VIDEO_PLACEHOLDER", "<video>")
 
 V_HEAD_WEIGHTS_NAME = "value_head.bin"
 
@@ -592,6 +593,33 @@ register_model_group(
         },
     },
     template="glm4",
+)
+
+
+register_model_group(
+    models={
+        "Index-1.9B-Chat": {
+            DownloadSource.DEFAULT: "IndexTeam/Index-1.9B-Chat",
+            DownloadSource.MODELSCOPE: "IndexTeam/Index-1.9B-Chat",
+        },
+        "Index-1.9B-Character-Chat": {
+            DownloadSource.DEFAULT: "IndexTeam/Index-1.9B-Character",
+            DownloadSource.MODELSCOPE: "IndexTeam/Index-1.9B-Character",
+        },
+        "Index-1.9B-Base": {
+            DownloadSource.DEFAULT: "IndexTeam/Index-1.9B",
+            DownloadSource.MODELSCOPE: "IndexTeam/Index-1.9B",
+        },
+        "Index-1.9B-Base-Pure": {
+            DownloadSource.DEFAULT: "IndexTeam/Index-1.9B-Pure",
+            DownloadSource.MODELSCOPE: "IndexTeam/Index-1.9B-Pure",
+        },
+        "Index-1.9B-Chat-32K": {
+            DownloadSource.DEFAULT: "IndexTeam/Index-1.9B-32K",
+            DownloadSource.MODELSCOPE: "IndexTeam/Index-1.9B-32K",
+        },
+    },
+    template="index",
 )
 
 
@@ -1156,14 +1184,6 @@ register_model_group(
             DownloadSource.DEFAULT: "microsoft/Phi-3-mini-128k-instruct",
             DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-mini-128k-instruct",
         },
-        "Phi-3-7B-8k-Instruct": {
-            DownloadSource.DEFAULT: "microsoft/Phi-3-small-8k-instruct",
-            DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-small-8k-instruct",
-        },
-        "Phi-3-7B-128k-Instruct": {
-            DownloadSource.DEFAULT: "microsoft/Phi-3-small-128k-instruct",
-            DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-small-128k-instruct",
-        },
         "Phi-3-14B-8k-Instruct": {
             DownloadSource.DEFAULT: "microsoft/Phi-3-medium-4k-instruct",
             DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-medium-4k-instruct",
@@ -1174,6 +1194,33 @@ register_model_group(
         },
     },
     template="phi",
+)
+
+
+register_model_group(
+    models={
+        "Phi-3-7B-8k-Instruct": {
+            DownloadSource.DEFAULT: "microsoft/Phi-3-small-8k-instruct",
+            DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-small-8k-instruct",
+        },
+        "Phi-3-7B-128k-Instruct": {
+            DownloadSource.DEFAULT: "microsoft/Phi-3-small-128k-instruct",
+            DownloadSource.MODELSCOPE: "LLM-Research/Phi-3-small-128k-instruct",
+        },
+    },
+    template="phi_small",
+)
+
+
+register_model_group(
+    models={
+        "Pixtral-12B-Chat": {
+            DownloadSource.DEFAULT: "mistral-community/pixtral-12b",
+            DownloadSource.MODELSCOPE: "AI-ModelScope/pixtral-12b",
+        }
+    },
+    template="pixtral",
+    vision=True,
 )
 
 
